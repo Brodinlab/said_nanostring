@@ -1,0 +1,196 @@
+---
+title: "ISG report"
+output: 
+  pdf_document:
+    latex_engine: xelatex
+classoption: table
+header-includes:
+- \usepackage{booktabs}
+params:
+  cur_sample: 'cur_sample'
+  ISG: 'ISG'
+  NFkb: 'NFkb'
+  IFNg: 'IFNg'
+  panel_info: 'panel_info'
+  sample_info: 'sample_info'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+library(dplyr)
+library(tibble)
+library(knitr)
+library(kableExtra)
+library(purrr)
+source('report_functions.R')
+
+# colorset = c("#4053d3", "#ddb310", "#b51d14",
+#              "#00beff", "#fb49b0", "#00b25d",
+#              "#693a3a", '#000000')
+
+cur_sample = params$cur_sample
+ISG = params$ISG
+NFkb = params$NFkb
+IFNg = params$IFNg
+panel_info = params$panel_info
+sample_info = params$sample_info
+
+show_ISG = TRUE
+show_NFkb = cur_sample %in% NFkb$`Subject ID`
+show_IFNg = cur_sample %in% IFNg$`Subject ID`
+
+```
+
+Patient ID: `r toString(cur_sample)`
+
+Contact: `r toString(unique(sample_info$Contact))`
+
+```{r results='asis'}
+sample_info %>% 
+  select(-c('Contact')) %>% 
+  arrange(Visit) %>% 
+  t() %>% 
+  as.data.frame() %>%
+  neat_print_table(col_per_row=3, col_names=NULL)
+```
+
+\clearpage
+
+# Results (ISG)
+
+```{r, eval=show_ISG}
+# ISG
+# fig 1
+
+ISG %>% 
+  filter(!(Group %in% c('Patients', 'Patient IFN stimulation')) | 
+           `Subject ID` == cur_sample) %>%
+  mutate(label = if_else(`Subject ID` == cur_sample, 
+                         paste(`Subject ID`, Visit, sep='_'), 
+                         NA)) %>%
+  score_scatter_plot()
+
+# fig 2
+
+healthy_range <- (ISG %>% filter(Group=='Healthy control'))$geomean %>% quantile(c(0.01,0.99))
+ISG %>% 
+  prepare_timeline_table(current_sample = cur_sample, sample_info = sample_info) %>%
+  score_timeline_plot(healthy_range = healthy_range)
+
+```
+
+\clearpage
+
+```{r results='asis'}
+# print table for panel and geomean score
+ISG %>% 
+  filter(`Subject ID` == cur_sample) %>% 
+  prepare_score_table(panel = na.omit(panel_info$`ISG score`)) %>%
+  neat_print_table(col_per_row = 4, 
+                   caption = 'ISG scores and the panel', 
+                   stripe_index=c(1,2))
+```
+
+\clearpage
+
+# Results (NFkb)
+
+`r if(!show_NFkb){"not in the panel"}`
+
+```{r, eval=show_NFkb}
+# NFkb
+# fig 1
+NFkb %>% 
+  filter(!(Group %in% c('Patients', 'Patient IFN stimulation')) | 
+           `Subject ID` == cur_sample) %>%
+  mutate(label = if_else(`Subject ID` == cur_sample, 
+                         paste(`Subject ID`, Visit, sep='_'), 
+                         NA)) %>%
+  score_scatter_plot()
+
+# fig 2
+healthy_range <- (NFkb %>% filter(Group=='Healthy control'))$geomean %>% quantile(c(0.01,0.99))
+NFkb %>% 
+  prepare_timeline_table(current_sample = cur_sample, sample_info = sample_info) %>%
+  score_timeline_plot(healthy_range = healthy_range)
+
+
+
+```
+
+\clearpage
+
+```{r results='asis', eval=show_NFkb}
+NFkb %>% 
+  filter(`Subject ID` == cur_sample) %>% 
+  prepare_score_table(panel = na.omit(panel_info$`NF-kB score`)) %>%
+  neat_print_table(col_per_row = 4, 
+                   caption = 'NFkb scores and the panel', 
+                   stripe_index=c(1,2))
+
+```
+
+\clearpage
+
+# Results (IFNg)
+
+`r if(!show_IFNg){"not in the panel"}`
+
+```{r, eval=show_IFNg}
+# IFNg
+# fig 1
+IFNg %>% 
+  filter(!(Group %in% c('Patients', 'Patient IFN stimulation')) | 
+           `Subject ID` == cur_sample) %>%
+  mutate(label = if_else(`Subject ID` == cur_sample, 
+                         paste(`Subject ID`, Visit, sep='_'), 
+                         NA)) %>%
+  score_scatter_plot()
+
+# fig 2
+healthy_range <- (IFNg %>% filter(Group=='Healthy control'))$geomean %>% quantile(c(0.01,0.99))
+IFNg %>% 
+  prepare_timeline_table(current_sample = cur_sample, sample_info = sample_info) %>%
+  score_timeline_plot(healthy_range = healthy_range)
+
+```
+
+\clearpage
+
+```{r results='asis', eval=show_IFNg}
+IFNg %>%
+  filter(`Subject ID` == cur_sample) %>% 
+  prepare_score_table(panel = na.omit(panel_info$`IFN-g Score`)) %>%
+  neat_print_table(col_per_row = 4, 
+                   caption = 'IFNg scores and the panel', 
+                   stripe_index=c(1,2))
+```
+
+\clearpage
+
+# Protocol
+
+## Sample processing
+
+Blood drawn in an EDTA tube is, as soon as possible, aliquoted and mixed with PAXgene buffer in a 100:276 blood to PAXgene ratio, i.e. for 1 ml of blood, 2.76 ml of PAXgene buffer are used. After thoroughly mixing, the PAXgene sample is left at RT for a minimum of 1h to ensure blood cell lysis and then frozen at -80ºC until its use for RNA isolation.
+
+## RNA isolation
+
+The PAXgene sample previously frozen at -80ºC is thawed and equilibrated at RT for 30 min - 1h. Then, the protocol from PreAnalytix for the automated RNA purification from PAXgene samples is followed. Briefly, the sample is centrifuged twice, and the cell pellet resuspended in a buffer provided in the PAXgene kit. The following column-based purification steps for RNA isolation are performed automatically in the QIAcube (liquid handling platform from QIAGEN). Two aliquots of the eluted RNA are taken for the subsequent concentration measurement and integrity check. The remaining sample is frozen at -80ºC until its use for gene expression analyses.
+
+## Gene expression analyses
+
+The gene expression levels of 56 immune-related genes and 3 housekeeping genes are measured using NanoString Technologies. For this, a hybridization reaction between the mRNA molecules in the sample and a set of oligonucleotide probes, designed to capture the specific genes of interest, is carried out following NanoString's recommendations. Briefly, around 5 µl of RNA sample are mixed with the oligonucleotide probes and incubated in a thermocycler at 65ºC, with a heated lid at 70ºC, for 20h. Once the reaction time is completed, the sample is loaded into a cartridge designed to be read by NanoString's nCounter instrument. The cartridge is then placed inside the nCounter and the gene expression assay is carried out within the instrument, which in the end provides a readout with raw mRNA counts of the genes of study.
+
+Clinical samples, along with healthy donor reference samples, are run in the nCounter in batches of 12.
+
+## Gene expression data analysis
+
+First, a quality check of the data is done by the nSolver software provided by NanoString. Then, as recommended by Nanostring, the data is pre-processed in two different normalization steps: 1. Internal positive control normalization. 2. Housekeeping genes normalization.
+
+After normalization, two different scores (Z-score and geomean score) are calculated to provide a summary of the expression levels of type I IFN--stimulated genes (ISG scores), NF-kB--regulated genes (NF-kB scores) and type II IFN--regulated genes (IFN-gamma scores)1,2. Of note, NanoString's products, along with any assays developed with its components are intended for research purposes only.
+
+## References
+
+1.  Kim, H., de Jesus, A. A., Brooks, S. R., Liu, Y., Huang, Y., VanTries, R., ... & Goldbach-Mansky, R. (2018). Development of a validated interferon score using NanoString technology. Journal of Interferon & Cytokine Research, 38(4), 171-185.
+2.  Abers, M. S., Delmonte, O. M., Ricotta, E. E., Fintzi, J., Fink, D. L., de Jesus, A. A. A., ... & NIAID COVID-19 Consortium. (2021). An immune-based biomarker signature is associated with mortality in COVID-19 patients. JCI insight, 6(1).
